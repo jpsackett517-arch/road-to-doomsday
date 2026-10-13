@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Road to Doomsday</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: countdown marquee → stat strip + reel progress → tabs (Schedule | Watchlist). Palette: Latverian steel + cloak green, brass for "today". */
+:root{
+  --bg:#ECEFEC; --surface:#F8FAF8; --sunk:#E1E6E2; --ink:#121815; --muted:#5D6862; --line:#CBD3CE;
+  --accent:#2D6A3E; --accent-ink:#F3F8F4; --accent-soft:#D6E6DA; --brass:#A9741C; --brass-soft:#F2E4C8;
+  --done:#7C8A82; --warn:#B4482F;
+  --f-display:"Big Shoulders Display","Arial Narrow",Impact,sans-serif;
+  --f-body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0F1412; --surface:#171E1A; --sunk:#0B0F0D; --ink:#E6ECE8; --muted:#94A39A; --line:#2A3530;
+  --accent:#6DBA82; --accent-ink:#0C140F; --accent-soft:#1F3627; --brass:#D9A748; --brass-soft:#3A2E17;
+  --done:#6F7D75; --warn:#E07A5F; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F1412; --surface:#171E1A; --sunk:#0B0F0D; --ink:#E6ECE8; --muted:#94A39A; --line:#2A3530;
+  --accent:#6DBA82; --accent-ink:#0C140F; --accent-soft:#1F3627; --brass:#D9A748; --brass-soft:#3A2E17;
+  --done:#6F7D75; --warn:#E07A5F; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:980px;margin:0 auto;padding-inline:16px;padding-block:20px 56px;display:flex;flex-direction:column;gap:22px}
+.num,.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+/* marquee */
+.marquee{display:grid;grid-template-columns:1fr auto;gap:16px 28px;align-items:end;border-bottom:3px solid var(--ink);padding-bottom:16px}
+.eyebrow{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--f-display);font-weight:900;font-size:clamp(44px,9vw,84px);line-height:.88;margin:6px 0 0;letter-spacing:.01em;text-transform:uppercase;text-wrap:balance}
+h1 span{color:var(--accent)}
+.showtime{font-size:14px;color:var(--muted);margin-top:8px}
+.showtime b{color:var(--ink);font-weight:600}
+.clock{display:flex;gap:10px}
+.clock div{display:flex;flex-direction:column;align-items:center;min-width:54px}
+.clock .v{font-family:var(--f-display);font-weight:800;font-size:44px;line-height:1}
+.clock .u{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.stat{background:var(--surface);padding:12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.stat .k{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.stat .big{font-family:var(--f-display);font-weight:800;font-size:34px;line-height:1.05}
+.stat .sub{font-size:12.5px;color:var(--muted)}
+.reel{display:flex;flex-direction:column;gap:6px}
+.reelbar{height:14px;border-radius:3px;background:var(--sunk);overflow:hidden;display:flex;border:1px solid var(--line)}
+.reelbar i{display:block;height:100%;background:var(--accent);transition:width .4s ease}
+.reelmeta{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);gap:12px;flex-wrap:wrap}
+
+/* controls */
+.bar{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
+.tabs{display:flex;gap:4px;background:var(--sunk);padding:4px;border-radius:8px}
+.tabs button{border:0;background:transparent;color:var(--muted);font:600 14px var(--f-body);padding:7px 14px;border-radius:6px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.opts{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:13px;color:var(--muted)}
+.opts label{display:flex;gap:6px;align-items:center}
+select,input[type=date]{font:500 13px var(--f-body);color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
+button:focus-visible,select:focus-visible,input:focus-visible,.chk:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.save{font-family:var(--f-mono);font-size:11.5px;color:var(--muted)}
+
+/* today card */
+.tonight{background:var(--brass-soft);border:1px solid color-mix(in srgb,var(--brass) 45%,transparent);border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.tonight h2{margin:0;font-family:var(--f-display);font-weight:800;font-size:26px;text-transform:uppercase;letter-spacing:.02em;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.tonight h2 .num{font-size:15px;font-weight:600;color:var(--brass);align-self:center}
+
+/* schedule */
+.week{display:flex;flex-direction:column;gap:6px}
+.week h3{margin:8px 0 2px;font-family:var(--f-mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600;display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:4px}
+.day{display:grid;grid-template-columns:92px minmax(0,1fr) auto;gap:4px 14px;padding:9px 12px;background:var(--surface);border:1px solid var(--line);border-radius:6px;align-items:start}
+.day.today{border-color:var(--brass);box-shadow:inset 3px 0 0 var(--brass)}
+.day.we .dname{color:var(--accent)}
+.dname{font-weight:700;font-size:14px;line-height:1.25}
+.dname small{display:block;font-weight:500;color:var(--muted);font-size:12px}
+.dtot{font-family:var(--f-mono);font-size:12.5px;color:var(--muted);white-space:nowrap;padding-top:2px}
+.chunks{display:flex;flex-direction:column;gap:3px;min-width:0}
+.chunk{display:flex;gap:8px;align-items:baseline;min-width:0}
+.chunk .t{min-width:0;overflow-wrap:anywhere}
+.chunk .m{font-family:var(--f-mono);font-size:12px;color:var(--muted);white-space:nowrap;margin-left:auto}
+.chunk .ep{color:var(--muted);font-size:13px}
+.mini{flex:none;width:18px;height:18px;border-radius:4px;border:1.5px solid var(--muted);background:transparent;cursor:pointer;padding:0;position:relative;top:3px}
+.mini:hover{border-color:var(--accent);background:var(--accent-soft)}
+.chunk.series{flex-direction:column;align-items:stretch;gap:5px;padding-block:2px}
+.srow{display:flex;gap:8px;align-items:baseline;min-width:0}
+.eps{display:flex;flex-wrap:wrap;gap:5px}
+.epb{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:600 12.5px var(--f-body);padding:4px 9px 4px 6px;border-radius:6px;cursor:pointer}
+.epb .box{width:14px;height:14px;border-radius:3px;border:1.5px solid var(--muted)}
+.epb small{font:500 11px var(--f-mono);color:var(--muted)}
+.epb:hover{border-color:var(--accent);background:var(--accent-soft)}
+.epb:hover .box{border-color:var(--accent)}
+.epb.more{border-style:dashed;color:var(--accent);padding-left:9px;background:transparent}
+.finale{display:grid;grid-template-columns:92px minmax(0,1fr);gap:14px;padding:12px;border-radius:6px;background:var(--ink);color:var(--bg);align-items:center}
+.finale .dname small{color:inherit;opacity:.7}
+.finale b{font-family:var(--f-display);font-size:24px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}
+.note{font-size:12.5px;color:var(--muted)}
+.warn{color:var(--warn)}
+
+/* list */
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--surface);color:var(--muted);font:600 12.5px var(--f-body);padding:4px 10px;border-radius:999px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--surface)}
+.row{display:grid;grid-template-columns:30px 26px minmax(0,1fr) auto;gap:4px 10px;align-items:center;padding:8px 12px;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row .n{font-family:var(--f-mono);font-size:12px;color:var(--muted);text-align:right}
+.row .ti{min-width:0}
+.row .ti b{font-weight:600}
+.row .ti .meta{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;font-size:12px;color:var(--muted)}
+.row.done .ti b{color:var(--done);text-decoration:line-through;text-decoration-thickness:1px}
+.fam{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;padding:1px 6px;border-radius:3px;background:var(--sunk);color:var(--muted)}
+.fam.mcu{background:var(--accent-soft);color:var(--accent)}
+.rt{font-family:var(--f-mono);font-size:12.5px;color:var(--muted);text-align:right;white-space:nowrap}
+.chk{width:22px;height:22px;border-radius:5px;border:1.5px solid var(--muted);background:transparent;cursor:pointer;display:grid;place-items:center;padding:0;color:var(--accent-ink)}
+.chk[aria-checked="true"]{background:var(--accent);border-color:var(--accent)}
+.chk svg{width:14px;height:14px}
+.step{display:flex;align-items:center;gap:4px}
+.step button{width:22px;height:22px;border-radius:5px;border:1px solid var(--line);background:var(--sunk);color:var(--ink);font:700 14px var(--f-mono);cursor:pointer;padding:0;line-height:1}
+.step .c{font-family:var(--f-mono);font-size:12px;min-width:44px;text-align:center}
+.epbar{height:4px;border-radius:2px;background:var(--sunk);overflow:hidden;width:100%;max-width:160px}
+.epbar i{display:block;height:100%;background:var(--accent)}
+.pill{font-family:var(--f-mono);font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:999px;background:var(--sunk);color:var(--muted);white-space:nowrap}
+.pill.ahead{background:var(--accent-soft);color:var(--accent)}
+.pill.behind{background:var(--brass-soft);color:var(--warn)}
+.duo{display:flex;flex-direction:column;gap:10px;padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.duo-top{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
+.who{display:flex;gap:4px;background:var(--sunk);padding:4px;border-radius:8px}
+.who button{border:0;background:transparent;color:var(--muted);font:600 14px var(--f-body);padding:6px 16px;border-radius:6px;cursor:pointer}
+.who button[aria-checked="true"]{background:var(--accent);color:var(--accent-ink)}
+.tog{display:flex;gap:7px;align-items:center;font-size:13px;color:var(--muted);cursor:pointer}
+.tog input{accent-color:var(--accent);width:16px;height:16px}
+.duo-rows{display:flex;flex-direction:column;gap:6px}
+.drow{display:grid;grid-template-columns:64px minmax(0,1fr) 54px minmax(0,auto);gap:4px 12px;align-items:center;font-size:13px}
+.drow .dn{font-weight:700}
+.drow.active .dn{color:var(--accent)}
+.dbar{height:10px;border-radius:3px;background:var(--sunk);overflow:hidden;border:1px solid var(--line)}
+.dbar i{display:block;height:100%;background:var(--muted);transition:width .4s ease}
+.drow.active .dbar i{background:var(--accent)}
+.dv{text-align:right;font-size:12.5px}
+.dl{color:var(--muted);font-size:12.5px;white-space:nowrap}
+.duo-gap{font-weight:600;font-size:14px}
+.cu-h{font-size:12.5px;font-weight:600;color:var(--ink);margin-bottom:6px}
+.cu{display:flex;flex-wrap:wrap;gap:6px}
+.cuc{border:1px dashed var(--accent);background:transparent;color:var(--ink);font:500 12.5px var(--f-body);padding:4px 10px;border-radius:999px;cursor:pointer}
+.cuc small{color:var(--muted);font-family:var(--f-mono);font-size:11px}
+.cuc:hover{background:var(--accent-soft)}
+@media (max-width:640px){.drow{grid-template-columns:56px minmax(0,1fr) 50px}.drow .dl{grid-column:2/-1}}
+.foot{font-size:12.5px;color:var(--muted);line-height:1.6}
+
+@media (max-width:640px){
+  .marquee{grid-template-columns:1fr}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .day{grid-template-columns:minmax(0,1fr) auto}
+  .day .chunks{grid-column:1/-1}
+  .finale{grid-template-columns:1fr}
+  .row{grid-template-columns:26px minmax(0,1fr) auto}
+  .row .n{display:none}
+  .clock .v{font-size:36px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<style>body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="marquee">
+    <div>
+      <div class="eyebrow">Marvel marathon tracker</div>
+      <h1>Road to <span>Doomsday</span></h1>
+      <div class="showtime">Showtime <b>Mon, Dec 21 · 10:45 PM</b></div>
+    </div>
+    <div class="clock" id="clock" aria-label="Countdown to showtime">
+      <div><span class="v num" id="cd-d">--</span><span class="u">days</span></div>
+      <div><span class="v num" id="cd-h">--</span><span class="u">hrs</span></div>
+      <div><span class="v num" id="cd-m">--</span><span class="u">min</span></div>
+    </div>
+  </header>
+
+  <section class="duo" aria-label="You and Sophie">
+    <div class="duo-top">
+      <div class="who" role="radiogroup" aria-label="Whose progress to show">
+        <button role="radio" data-who="me" aria-checked="true">You</button>
+        <button role="radio" data-who="partner" aria-checked="false">Sophie</button>
+      </div>
+      <label class="tog" for="together"><input type="checkbox" id="together"> Watched it together (check-offs count for both)</label>
+    </div>
+    <div class="duo-rows" id="duo-rows"></div>
+    <div class="duo-gap" id="duo-gap"></div>
+  </section>
+
+  <section class="stats" aria-label="Progress summary">
+    <div class="stat"><span class="k">Left to watch</span><span class="big num" id="s-left">–</span><span class="sub" id="s-left-sub"></span></div>
+    <div class="stat"><span class="k">Titles left</span><span class="big num" id="s-titles">–</span><span class="sub" id="s-titles-sub"></span></div>
+    <div class="stat"><span class="k">Pace needed</span><span class="big num" id="s-pace">–</span><span class="sub" id="s-pace-sub"></span></div>
+    <div class="stat"><span class="k">Finish target</span><span class="big num" id="s-fin">–</span><span class="sub" id="s-fin-sub"></span></div>
+  </section>
+
+  <div class="reel">
+    <div class="reelbar" role="progressbar" aria-label="Minutes watched" id="reelbar"><i id="reelfill" style="width:0"></i></div>
+    <div class="reelmeta"><span id="r-watched"></span><span class="pill" id="r-status" hidden></span><span id="r-total"></span></div>
+  </div>
+
+  <div id="tonight"></div>
+
+  <div class="bar">
+    <div class="tabs" role="tablist">
+      <button role="tab" id="tab-plan" aria-selected="true">Schedule</button>
+      <button role="tab" id="tab-list" aria-selected="false">Watchlist</button>
+    </div>
+    <div class="opts">
+      <label for="finishBy">Finish by <input type="date" id="finishBy" min="2026-10-12" max="2026-12-21"></label>
+      <label for="boost">Weekends <select id="boost"><option value="1">same as weekdays</option><option value="1.5">1.5× longer</option><option value="2">2× longer</option></select></label>
+      <span class="save" id="save">Loading…</span>
+    </div>
+  </div>
+
+  <section id="plan" role="tabpanel" aria-labelledby="tab-plan"></section>
+  <section id="listp" role="tabpanel" aria-labelledby="tab-list" hidden>
+    <div class="filters" id="filters" style="margin-bottom:10px">
+      <button class="chip" data-f="todo" aria-pressed="true">To watch</button>
+      <button class="chip" data-f="all" aria-pressed="false">All</button>
+      <button class="chip" data-f="done" aria-pressed="false">Watched</button>
+    </div>
+    <div class="list" id="list"></div>
+  </section>
+
+  <p class="foot">Movie runtimes are theatrical cuts. Series totals marked ≈ are estimates based on typical episode lengths. VisionQuest episodes are scheduled no earlier than their Disney+ drop dates (finale Nov 11). Avengers: Endgame Encore is the 185-minute theatrical re-release from Sept 25, so check whether a theater near you still has it. The schedule rebuilds itself from whatever you have left, so if you miss a night it spreads the rest across the remaining days.</p>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+const SHOW = new Date("2026-12-21T22:45:00-05:00");
+// [title, year, family, minutes, episodes]
+const RAW = [
+["Captain America: The First Avenger",2011,"MCU",124],
+["Captain Marvel",2019,"MCU",123],["Iron Man",2008,"MCU",126],["Iron Man 2",2010,"MCU",124],["The Incredible Hulk",2008,"MCU",112],
+["Thor",2011,"MCU",115],["The Avengers",2012,"MCU",143],["Iron Man 3",2013,"MCU",130],["Thor: The Dark World",2013,"MCU",112],
+["Captain America: The Winter Soldier",2014,"MCU",136],["Guardians of the Galaxy",2014,"MCU",121],["Guardians of the Galaxy Vol. 2",2017,"MCU",136],
+["Avengers: Age of Ultron",2015,"MCU",141],["Ant-Man",2015,"MCU",117],["Captain America: Civil War",2016,"MCU",147],
+["Black Widow",2021,"MCU",134],["Black Panther",2018,"MCU",134],["Spider-Man: Homecoming",2017,"MCU",133],["Doctor Strange",2016,"MCU",115],
+["Thor: Ragnarok",2017,"MCU",130],["Ant-Man and the Wasp",2018,"MCU",118],["Avengers: Infinity War",2018,"MCU",149],["Avengers: Endgame",2019,"MCU",181],
+["Loki · Season 1",2021,"MCU",295,6],["WandaVision",2021,"MCU",335,9],["The Falcon and the Winter Soldier",2021,"MCU",325,6],
+["Shang-Chi and the Legend of the Ten Rings",2021,"MCU",132],["Eternals",2021,"MCU",156],["Spider-Man: Far From Home",2019,"MCU",129],
+["Spider-Man",2002,"Sony Spider-Man",121],["Spider-Man 2",2004,"Sony Spider-Man",127],["Spider-Man 3",2007,"Sony Spider-Man",139],
+["The Amazing Spider-Man",2012,"Sony Spider-Man",136],["The Amazing Spider-Man 2",2014,"Sony Spider-Man",142],["Spider-Man: No Way Home",2021,"MCU",148],
+["Hawkeye",2021,"MCU",300,6],["Moon Knight",2022,"MCU",290,6],["Doctor Strange in the Multiverse of Madness",2022,"MCU",126],["Ms. Marvel",2022,"MCU",275,6],
+["Thor: Love and Thunder",2022,"MCU",119],["She-Hulk: Attorney at Law",2022,"MCU",290,9],["Black Panther: Wakanda Forever",2022,"MCU",161],
+["X-Men: First Class",2011,"X-Men",132],["X-Men",2000,"X-Men",104],["X2: X-Men United",2003,"X-Men",134],["X-Men: The Last Stand",2006,"X-Men",104],
+["X-Men Origins: Wolverine",2009,"X-Men",107],["The Wolverine",2013,"X-Men",126],["X-Men: Days of Future Past",2014,"X-Men",132],["X-Men: Apocalypse",2016,"X-Men",144],
+["Dark Phoenix",2019,"X-Men",113],["Logan",2017,"X-Men",137],["Deadpool",2016,"X-Men",108],["Deadpool 2",2018,"X-Men",119],
+["Venom",2018,"Spider-Verse",112],["Venom: Let There Be Carnage",2021,"Spider-Verse",97],["Morbius",2022,"Spider-Verse",104],["Madame Web",2024,"Spider-Verse",116],
+["Kraven the Hunter",2024,"Spider-Verse",127],["Venom: The Last Dance",2024,"Spider-Verse",109],
+["Blade",1998,"Legacy",120],["Blade II",2002,"Legacy",117],["Blade: Trinity",2004,"Legacy",113],["Fantastic Four",2005,"Legacy",106],
+["Fantastic Four: Rise of the Silver Surfer",2007,"Legacy",92],["Ghost Rider",2007,"Legacy",110],["Ghost Rider: Spirit of Vengeance",2012,"Legacy",96],
+["Daredevil",2003,"Legacy",103],["Elektra",2005,"Legacy",97],["The Punisher",2004,"Legacy",124],
+["Secret Invasion",2023,"MCU",285,6],["Ant-Man and the Wasp: Quantumania",2023,"MCU",124],["Guardians of the Galaxy Vol. 3",2023,"MCU",150],
+["Loki · Season 2",2023,"MCU",310,6],["The Marvels",2023,"MCU",105],["Echo",2024,"MCU",200,5],["Agatha All Along",2024,"MCU",330,9],
+["Daredevil: Born Again · Seasons 1–2",2025,"MCU",840,17],["Ironheart",2025,"MCU",265,6],["Deadpool & Wolverine",2024,"MCU",128],
+["Captain America: Brave New World",2025,"MCU",118],["Thunderbolts*",2025,"MCU",127],["The Fantastic Four: First Steps",2025,"MCU",115],
+["Spider-Man: Brand New Day",2026,"MCU",150],["VisionQuest",2026,"MCU",430,8],["Avengers: Endgame Encore",2026,"MCU",185]
+];
+const VQ_DROPS = ["2026-10-14","2026-10-14","2026-10-21","2026-10-21","2026-10-28","2026-10-28","2026-11-04","2026-11-11"];
+const ITEMS = RAW.map((r,i)=>({id:"i"+i, n:i, title:r[0], year:r[1], fam:r[2], min:r[3], eps:r[4]||0}));
+// VisionQuest per-episode minutes (eps 1–6 ≈50, ep 7 = 62, ep 8 = 68)
+const epMin = (it,k) => it.title==="VisionQuest" ? [50,50,50,50,50,50,62,68][k] : it.min/it.eps;
+
+const STARTING_STATE = {"baseline": {"boost": 1.5, "finishBy": "2026-12-20", "remaining": 11797, "start": "2026-10-13"}, "boost": 1.5, "finishBy": "2026-12-20", "log": {"2026-10-12": 405}, "partner": {"baseline": {"boost": 1.5, "finishBy": "2026-12-20", "remaining": 11797, "start": "2026-10-13"}, "log": {"2026-10-12": 1721}, "name": "Sophie", "progress": {"i0": 1, "i1": 1, "i10": 1, "i11": 1, "i12": 1, "i13": 1, "i14": 1, "i15": 1, "i16": 1, "i17": 1, "i18": 1, "i19": 1, "i2": 1, "i20": 1, "i21": 1, "i22": 1, "i23": 6, "i24": 9, "i25": 2, "i3": 1, "i4": 1, "i5": 1, "i6": 1, "i7": 1, "i8": 1, "i9": 1}}, "progress": {"i0": 1, "i1": 1, "i10": 1, "i11": 1, "i12": 1, "i13": 1, "i14": 1, "i2": 1, "i25": 2, "i3": 1, "i4": 1, "i5": 1, "i6": 1, "i7": 1, "i8": 1, "i9": 1}, "together": true};
+function defaults(){ return normalize(JSON.parse(JSON.stringify(STARTING_STATE))); }
+// state holds your progress at the top level and Sophie's under state.partner
+function normalize(d){
+  const s={progress:{...(d.progress||{})}, finishBy:d.finishBy||"2026-12-20", boost:Number(d.boost)||1.5, log:{...(d.log||{})}, baseline: d.baseline? {...d.baseline} : null, together: d.together===true};
+  const pt=d.partner||{};
+  s.partner={name: pt.name||"Sophie", progress:{...(pt.progress||d.progress||{})}, log:{...(pt.log||{})}, baseline: pt.baseline? {...pt.baseline} : null};
+  return s;
+}
+let state = defaults();
+try{ const c = JSON.parse(localStorage.getItem("rtd-state")||"null"); if(c && c.progress) state = normalize(c); }catch(e){}
+let who = "me";
+try{ if(localStorage.getItem("rtd-who")==="partner") who="partner"; }catch(e){}
+const P = () => who==="me" ? state : state.partner;
+const nameOf = w => w==="me" ? "You" : state.partner.name;
+function withWho(w, fn){ const prev=who; who=w; try{ return fn(); } finally{ who=prev; } }
+function ensureBaselines(){ ["me","partner"].forEach(w=>withWho(w,()=>{ if(!P().baseline) P().baseline=makeBaseline(); })); }
+
+const units = it => it.eps || 1;
+const doneUnits = it => Math.min(units(it), P().progress[it.id]||0);
+const isDone = it => doneUnits(it) >= units(it);
+function watchedMin(it){ if(!it.eps) return isDone(it)?it.min:0; let s=0; for(let k=0;k<doneUnits(it);k++) s+=epMin(it,k); return s; }
+const fmtHM = m => { m=Math.round(m); const h=Math.floor(m/60), r=m%60; return h? `${h}h ${String(r).padStart(2,"0")}m` : `${r}m`; };
+const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const parseYmd = s => { const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); };
+const DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"], MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const nice = d => `${MON[d.getMonth()]} ${d.getDate()}`;
+
+function planStart(){ const now=new Date(); const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()); if(now.getHours()>=20) d.setDate(d.getDate()+1); return d; }
+const todayKey = () => ymd(new Date());
+const totalLeft = () => ITEMS.reduce((a,it)=>a+it.min-watchedMin(it),0);
+const dayW = (d,boost) => (d.getDay()===0||d.getDay()===6)? boost : 1;
+function makeBaseline(){ return {start: ymd(planStart()), remaining: Math.round(totalLeft()), finishBy: state.finishBy, boost: Number(state.boost)}; }
+function baselineWeights(){
+  const b=P().baseline, out=[];
+  for(let d=parseYmd(b.start); d<=parseYmd(b.finishBy); d.setDate(d.getDate()+1)) out.push([ymd(d), dayW(d,b.boost)]);
+  return out;
+}
+// minutes the original plan expected you to still have left at the START of dateStr
+function expectedLeftAt(dateStr){
+  const ws=baselineWeights(), sum=ws.reduce((a,x)=>a+x[1],0);
+  if(!sum) return 0;
+  const passed=ws.filter(x=>x[0]<dateStr).reduce((a,x)=>a+x[1],0);
+  return P().baseline.remaining*(1-passed/sum);
+}
+function paceStatus(){
+  if(!P().baseline) return null;
+  const today=todayKey(), tm=new Date(); tm.setDate(tm.getDate()+1);
+  // compare against the start of today, or the end of today once you've watched something today or the evening is over
+  const dayCounted = ((P().log||{})[today]||0) > 0 || ymd(planStart()) !== today;
+  const ref = expectedLeftAt(dayCounted ? ymd(tm) : today), diff = ref - totalLeft();
+  if(diff > 5) return {kind:"ahead", min: diff};
+  if(diff < -5) return {kind:"behind", min: -diff};
+  return {kind:"on", min:0};
+}
+function basePace(){ const ws=baselineWeights(), sum=ws.reduce((a,x)=>a+x[1],0); return sum? P().baseline.remaining/sum : 0; }
+
+function buildPlan(){
+  const chunks=[];
+  for(const it of ITEMS){
+    if(isDone(it)) continue;
+    if(!it.eps){ chunks.push({it, k:null, min:it.min, avail:null}); continue; }
+    for(let k=doneUnits(it);k<it.eps;k++) chunks.push({it,k,min:epMin(it,k), avail: it.title==="VisionQuest"?VQ_DROPS[k]:null});
+  }
+  const start=planStart(), end=parseYmd(state.finishBy);
+  const days=[]; for(let d=new Date(start); d<=end; d.setDate(d.getDate()+1)){ const we=d.getDay()===0||d.getDay()===6; days.push({date:new Date(d), we, w: we?Number(state.boost):1, list:[], min:0}); }
+  const total=chunks.reduce((a,c)=>a+c.min,0);
+  if(!days.length) return {days, total, perW:0, overflow:chunks.length, watchedToday:0};
+  // anything already watched today counts toward today's share instead of pulling more into today
+  const watchedToday = ymd(start)===todayKey() ? ((P().log||{})[todayKey()]||0) : 0;
+  const sumW=days.reduce((a,d)=>a+d.w,0), perW=(total+watchedToday)/sumW;
+  let ci=0, cumT=0, cumA=watchedToday;
+  days.forEach((day,di)=>{
+    cumT += perW*day.w;
+    const last = di===days.length-1;
+    while(ci<chunks.length){
+      const c=chunks[ci];
+      if(c.avail && ymd(day.date)<c.avail) break;
+      if(!last && cumA + c.min/2 > cumT && day.list.length) break;
+      if(!last && day.list.length && day.min + c.min > perW*day.w*1.4) break;
+      if(!last && cumA + c.min/2 > cumT && !day.list.length && cumA + c.min > cumT + perW*day.w*0.6) break;
+      day.list.push(c); day.min+=c.min; cumA+=c.min; ci++;
+    }
+  });
+  return {days, total, perW, overflow: chunks.length-ci, watchedToday};
+}
+
+function groupChunks(list){
+  const out=[];
+  for(const c of list){
+    const prev=out[out.length-1];
+    if(prev && c.k!==null && prev.it===c.it){ prev.k2=c.k; prev.min+=c.min; }
+    else out.push({it:c.it,k:c.k,k2:c.k,min:c.min});
+  }
+  return out;
+}
+
+const CHECK='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg>';
+const esc = s => s.replace(/[&<>"]/g, ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));
+function chunkLabel(g){ if(g.k===null) return ""; return g.k===g.k2? `Ep ${g.k+1}` : `Ep ${g.k+1}–${g.k2+1}`; }
+
+function render(){
+  const total=ITEMS.reduce((a,it)=>a+it.min,0);
+  const watched=ITEMS.reduce((a,it)=>a+watchedMin(it),0);
+  const left=total-watched;
+  const titlesLeft=ITEMS.filter(it=>!isDone(it)).length;
+  const plan=buildPlan();
+  const hrsLeft=left/60;
+  document.getElementById("s-left").textContent = `${Math.floor(hrsLeft)}h`;
+  document.getElementById("s-left-sub").textContent = `${fmtHM(left)} of footage`;
+  document.getElementById("s-titles").textContent = titlesLeft;
+  document.getElementById("s-titles-sub").textContent = `${ITEMS.length-titlesLeft} of ${ITEMS.length} done`;
+  const wkday = plan.perW, wkend = plan.perW*Number(state.boost);
+  document.getElementById("s-pace").textContent = plan.days.length? fmtHM(wkday) : "—";
+  let paceSub = plan.days.length? (Number(state.boost)>1? `per weeknight · ${fmtHM(wkend)} weekends` : "per day, every day") : "pick a later finish date";
+  if(plan.days.length && P().baseline){ const was=basePace(); if(Math.round(was)!==Math.round(wkday)) paceSub += ` · ${wkday<was?"down":"up"} from ${fmtHM(was)}`; }
+  document.getElementById("s-pace-sub").textContent = paceSub;
+  const ps=paceStatus(), st=document.getElementById("r-status");
+  if(!ps || !plan.total){ st.hidden=true; }
+  else { st.hidden=false; st.className="pill "+ps.kind; st.textContent = ps.kind==="ahead"? `▲ ${fmtHM(ps.min)} ahead of schedule` : ps.kind==="behind"? `▼ ${fmtHM(ps.min)} behind schedule` : "On schedule"; }
+  const fin=parseYmd(state.finishBy);
+  document.getElementById("s-fin").textContent = nice(fin);
+  document.getElementById("s-fin-sub").textContent = `${plan.days.length} viewing days left`;
+  const pct = total? watched/total*100 : 0;
+  document.getElementById("reelfill").style.width = pct.toFixed(2)+"%";
+  document.getElementById("reelbar").setAttribute("aria-valuenow", Math.round(pct));
+  document.getElementById("r-watched").textContent = `${pct.toFixed(1)}% watched · ${fmtHM(watched)}`;
+  document.getElementById("r-total").textContent = `Full marathon ${fmtHM(total)}`;
+  document.getElementById("finishBy").value = state.finishBy;
+  document.getElementById("boost").value = String(state.boost);
+  renderTonight(plan); renderPlan(plan); renderList(); renderDuo();
+}
+
+function personStats(w){
+  return withWho(w, ()=>{
+    const total=ITEMS.reduce((a,it)=>a+it.min,0), watched=ITEMS.reduce((a,it)=>a+watchedMin(it),0);
+    return {pct: watched/total*100, left: total-watched, titles: ITEMS.filter(it=>!isDone(it)).length, units: Object.fromEntries(ITEMS.map(it=>[it.id, doneUnits(it)]))};
+  });
+}
+function renderDuo(){
+  document.querySelectorAll("[data-who]").forEach(b=>b.setAttribute("aria-checked", String(b.dataset.who===who)));
+  document.getElementById("together").checked = !!state.together;
+  const me=personStats("me"), pt=personStats("partner"), sn=esc(state.partner.name);
+  const row=(w,s)=>`<div class="drow${w===who?" active":""}"><span class="dn">${w==="me"?"You":sn}</span><div class="dbar"><i style="width:${s.pct.toFixed(2)}%"></i></div><span class="dv num">${s.pct.toFixed(1)}%</span><span class="dl">${fmtHM(s.left)} left · ${s.titles} titles</span></div>`;
+  document.getElementById("duo-rows").innerHTML = row("me",me)+row("partner",pt);
+  const diff = me.left - pt.left;
+  document.getElementById("duo-gap").textContent = Math.abs(diff)<1 ? "You're neck and neck." : diff>0 ? `${state.partner.name} is ${fmtHM(diff)} ahead of you.` : `You're ${fmtHM(-diff)} ahead of ${state.partner.name}.`;
+}
+
+function chunkRows(day, tonight){
+  return groupChunks(day.list).map(g=>{
+    if(g.k===null) return `<div class="chunk"><button class="mini" title="Mark watched" aria-label="Mark ${esc(g.it.title)} watched" data-mark="${g.it.id}" data-upto="1"></button><span class="t">${esc(g.it.title)}</span><span class="m">${fmtHM(g.min)}</span></div>`;
+    // series: one button per episode so a partial night (or an extra episode) is one tap
+    let eps="";
+    for(let k=g.k;k<=g.k2;k++) eps+=`<button class="epb" data-mark="${g.it.id}" data-upto="${k+1}" title="Mark episode ${k+1} watched${k>g.k?` (and the ones before it)`:""}" aria-label="Mark ${esc(g.it.title)} episode ${k+1} watched"><span class="box"></span>Ep ${k+1}<small>${fmtHM(epMin(g.it,k))}</small></button>`;
+    const next=g.k2+1;
+    if(tonight && next<g.it.eps) eps+=`<button class="epb more" data-mark="${g.it.id}" data-upto="${next+1}" title="Watched past tonight's plan? Mark episode ${next+1}" aria-label="Also watched ${esc(g.it.title)} episode ${next+1}">+ Ep ${next+1}</button>`;
+    return `<div class="chunk series"><div class="srow"><span class="t">${esc(g.it.title)} <span class="ep">· ${chunkLabel(g)}</span></span><span class="m">${fmtHM(g.min)}</span></div><div class="eps">${eps}</div></div>`;
+  }).join("");
+}
+
+function renderTonight(plan){
+  const el=document.getElementById("tonight");
+  if(!plan.total){ el.innerHTML = `<div class="tonight"><h2>Marathon complete <span class="num">Ready for Doom</span></h2><div class="note">Every title is checked off. See you on Dec 21.</div></div>`; return; }
+  const d0=plan.days[0];
+  if(!d0){ el.innerHTML=""; return; }
+  const d0today = ymd(d0.date)===todayKey();
+  const doneToday = d0today && !d0.list.length && plan.watchedToday>0;
+  const d = doneToday ? plan.days.find(x=>x.list.length) : d0;
+  let head="";
+  if(doneToday) head = `<div class="note">✓ Today's share is done. You watched ${fmtHM(plan.watchedToday)} today.</div>`;
+  else if(d0today && plan.watchedToday>0) head = `<div class="note">${fmtHM(plan.watchedToday)} watched today, ${fmtHM(d0.min)} to go.</div>`;
+  if(!d || !d.list.length){ el.innerHTML = head? `<div class="tonight">${head}</div>` : ""; return; }
+  const isToday = ymd(d.date)===todayKey();
+  el.innerHTML = `<div class="tonight"><h2>${isToday?"Tonight":"Up next · "+DOW[d.date.getDay()]+" "+nice(d.date)} <span class="num">${fmtHM(d.min)}</span></h2>${head}<div class="chunks">${chunkRows(d, true)}</div></div>`;
+}
+
+function renderPlan(plan){
+  const el=document.getElementById("plan");
+  if(!plan.days.length){ el.innerHTML=`<p class="note warn">Your finish date is before the next viewing day. Pick a later date.</p>`; return; }
+  let html="", wk=null, buf=[], wkMin=0;
+  const todayStr=ymd(new Date());
+  const flush=()=>{ if(buf.length) html+=`<div class="week"><h3><span>Week of ${nice(wk)}</span><span class="num">${fmtHM(wkMin)}</span></h3>${buf.join("")}</div>`; buf=[]; wkMin=0; };
+  for(const d of plan.days){
+    const monday=new Date(d.date); monday.setDate(monday.getDate()-((monday.getDay()+6)%7));
+    if(!wk || ymd(monday)!==ymd(wk)){ flush(); wk=monday; }
+    wkMin+=d.min;
+    const isT = ymd(d.date)===todayStr;
+    const body = d.list.length? chunkRows(d) : `<span class="note">${isT && plan.watchedToday? "Done for today ✓" : "Rest day"}</span>`;
+    buf.push(`<div class="day${d.we?" we":""}${ymd(d.date)===todayStr?" today":""}"><div class="dname">${DOW[d.date.getDay()]} ${nice(d.date)}<small>${ymd(d.date)===todayStr?"Today":d.we?"Weekend":""}</small></div><div class="chunks">${body}</div><div class="dtot">${d.min?fmtHM(d.min):"—"}</div></div>`);
+  }
+  flush();
+  if(plan.overflow) html+=`<p class="note warn">${plan.overflow} episodes couldn't fit before your finish date.</p>`;
+  html+=`<div class="finale" style="margin-top:12px"><div class="dname">Mon Dec 21<small>10:45 PM</small></div><b>Avengers: Doomsday</b></div>`;
+  el.innerHTML=html;
+}
+
+let filter="todo";
+function renderList(){
+  const rows=ITEMS.filter(it=> filter==="all" || (filter==="done"?isDone(it):!isDone(it))).map(it=>{
+    const du=doneUnits(it), done=isDone(it);
+    const ctrl = it.eps
+      ? `<div class="step"><button data-step="${it.id}" data-d="-1" aria-label="One fewer episode of ${esc(it.title)}">−</button><span class="c">${du}/${it.eps}</span><button data-step="${it.id}" data-d="1" aria-label="One more episode of ${esc(it.title)}">+</button></div>`
+      : "";
+    const rt = it.eps? `≈${fmtHM(it.min)}` : fmtHM(it.min);
+    return `<div class="row${done?" done":""}"><span class="n">${it.n}</span><button class="chk" role="checkbox" aria-checked="${done}" aria-label="${esc(it.title)}" data-toggle="${it.id}">${done?CHECK:""}</button><div class="ti"><b>${esc(it.title)}</b><div class="meta"><span>${it.year}</span><span class="fam${it.fam==="MCU"?" mcu":""}">${it.fam}</span>${it.eps?`<span>${it.eps} eps</span>`:""}${it.title==="VisionQuest"?"<span>finale Nov 11</span>":""}${it.title==="Avengers: Endgame Encore"?"<span>in theaters</span>":""}</div>${it.eps&&du&&!done?`<div class="epbar"><i style="width:${du/it.eps*100}%"></i></div>`:""}</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><span class="rt">${rt}</span>${ctrl}</div></div>`;
+  }).join("");
+  document.getElementById("list").innerHTML = rows || `<div class="row"><span></span><span></span><span class="note">Nothing here yet.</span></div>`;
+}
+
+/* ---------- persistence ---------- */
+let db=null, ref=null, dirty=false, timer=null, chain=Promise.resolve();
+const saveEl=document.getElementById("save");
+function cache(){ try{ localStorage.setItem("rtd-state", JSON.stringify(state)); }catch(e){} }
+function commit(){
+  cache(); render();
+  dirty=true; clearTimeout(timer);
+  if(!ref){ saveEl.textContent="Saved on this device"; dirty=false; return; }
+  saveEl.textContent="Saving…";
+  timer=setTimeout(()=>{
+    const body=JSON.parse(JSON.stringify(state)); body.updatedAt=new Date().toISOString();
+    chain=chain.then(()=>ref.set(body)).then(()=>{ dirty=false; saveEl.textContent="Synced"; })
+      .catch(e=>{ dirty=false; saveEl.textContent = "Not saved, check your connection"; });
+  },600);
+}
+function applyUnits(it, n){
+  const before=watchedMin(it);
+  if(n) P().progress[it.id]=n; else delete P().progress[it.id];
+  const delta=watchedMin(it)-before, k=todayKey();
+  P().log = P().log||{};
+  P().log[k] = Math.max(0, Math.round((P().log[k]||0)+delta));
+  if(!P().log[k]) delete P().log[k];
+}
+function setUnits(id, n, forWho){
+  const w = forWho || who;
+  const it=ITEMS.find(x=>x.id===id); n=Math.max(0,Math.min(units(it),n));
+  ensureBaselines();
+  withWho(w, ()=>{
+    const raising = n > doneUnits(it);
+    applyUnits(it, n);
+    // watching together: a check-off also counts for the other person (only ever moves them forward)
+    if(state.together && raising){ const other = w==="me"?"partner":"me"; withWho(other, ()=>{ if(doneUnits(it) < n) applyUnits(it, n); }); }
+  });
+  commit();
+}
+
+document.addEventListener("click",e=>{
+  const t=e.target.closest("[data-who],[data-catch],[data-toggle],[data-step],[data-mark],[data-f],[role=tab]"); if(!t) return;
+  if(t.dataset.who){ who=t.dataset.who; try{localStorage.setItem("rtd-who",who);}catch(_){} render(); }
+  else if(t.dataset.catch){ setUnits(t.dataset.catch, Number(t.dataset.n), t.dataset.w); }
+  else if(t.dataset.toggle){ const it=ITEMS.find(x=>x.id===t.dataset.toggle); setUnits(it.id, isDone(it)?0:units(it)); }
+  else if(t.dataset.step){ const it=ITEMS.find(x=>x.id===t.dataset.step); setUnits(it.id, doneUnits(it)+Number(t.dataset.d)); }
+  else if(t.dataset.mark){ const it=ITEMS.find(x=>x.id===t.dataset.mark); setUnits(it.id, Math.max(doneUnits(it), Number(t.dataset.upto))); }
+  else if(t.dataset.f){ filter=t.dataset.f; document.querySelectorAll("[data-f]").forEach(b=>b.setAttribute("aria-pressed", String(b===t))); renderList(); }
+  else if(t.getAttribute("role")==="tab"){ const plan=t.id==="tab-plan"; document.getElementById("tab-plan").setAttribute("aria-selected",plan); document.getElementById("tab-list").setAttribute("aria-selected",!plan); document.getElementById("plan").hidden=!plan; document.getElementById("listp").hidden=plan; try{localStorage.setItem("rtd-tab",plan?"plan":"list");}catch(_){} }
+});
+// changing the finish date or weekend weighting starts a fresh baseline for ahead/behind
+document.getElementById("finishBy").addEventListener("change",e=>{ if(e.target.value){ state.finishBy=e.target.value; ["me","partner"].forEach(w=>withWho(w,()=>{ P().baseline=makeBaseline(); })); commit(); }});
+document.getElementById("together").addEventListener("change",e=>{ state.together=e.target.checked; commit(); });
+document.getElementById("boost").addEventListener("change",e=>{ state.boost=Number(e.target.value); ["me","partner"].forEach(w=>withWho(w,()=>{ P().baseline=makeBaseline(); })); commit(); });
+try{ if(localStorage.getItem("rtd-tab")==="list") document.getElementById("tab-list").click(); }catch(_){}
+
+function tick(){
+  const ms=Math.max(0, SHOW-new Date());
+  const d=Math.floor(ms/864e5), h=Math.floor(ms%864e5/36e5), m=Math.floor(ms%36e5/6e4);
+  document.getElementById("cd-d").textContent=d; document.getElementById("cd-h").textContent=String(h).padStart(2,"0"); document.getElementById("cd-m").textContent=String(m).padStart(2,"0");
+}
+tick(); setInterval(tick, 20000);
+ensureBaselines();
+render();
+saveEl.textContent="Saved on this device";
+
+/* ---------- shared sync through Firebase ----------
+   Paste your Firebase web config below (Project settings → Your apps → Web app → SDK setup and configuration → Config).
+   Until you do, progress saves on this device only. */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCM98-p29n1HJjI60YmZTriaeMpXihO5pA",
+  authDomain: "marvel-movie-tracker-cc84b.firebaseapp.com",
+  projectId: "marvel-movie-tracker-cc84b",
+  storageBucket: "marvel-movie-tracker-cc84b.firebasestorage.app",
+  messagingSenderId: "144438691321",
+  appId: "1:144438691321:web:ae91995ce8aa97995fe928"
+};
+(function(){
+  try{
+    if(!FIREBASE_CONFIG.projectId || !window.firebase) return;
+    firebase.initializeApp(FIREBASE_CONFIG);
+    ref = firebase.firestore().doc("tracker/state");
+    saveEl.textContent="Syncing…";
+    let seeded=false;
+    ref.onSnapshot(snap=>{
+      if(dirty) return;
+      if(snap.exists){ state=normalize(snap.data()); ensureBaselines(); cache(); render(); saveEl.textContent="Synced"; }
+      else if(!seeded){ seeded=true; const body=JSON.parse(JSON.stringify(state)); body.updatedAt=new Date().toISOString(); ref.set(body).then(()=>{ saveEl.textContent="Synced"; }).catch(()=>{ saveEl.textContent="Couldn't reach the database"; }); }
+    }, ()=>{ saveEl.textContent="Couldn't reach the database · saved on this device"; ref=null; });
+  }catch(e){ ref=null; saveEl.textContent="Saved on this device"; }
+})();
+</script>
+</body>
+</html>
